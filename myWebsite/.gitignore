@@ -1,5 +1,2 @@
-
+*.db
 test.py
-
-sql/
-*.csv

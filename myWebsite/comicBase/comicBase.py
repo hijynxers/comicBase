@@ -1,14 +1,8 @@
 from flask import Flask, render_template, session, request, flash, redirect, url_for, g
 from functools import wraps
 import sqlite3
-#import urllib.request
-import pandas as pd
-import zipfile
 
-# works on server
 # import helper
-
-# works at home
 import comicBase.helper as helper
 
 def require_login(f):
@@ -42,296 +36,388 @@ def cb_logout(app):
     return redirect(url_for('cb_home_page'))
 
 @require_login
-def cb_add_comic(id):
+def cb_add_comic():
     if request.method == 'POST':
         try:
-            vol_id = request.form['volume_dropdown']
-            issue_num = request.form['issue_number']
+            name = request.form['issue_name']
+            num = request.form['issue_number']
+            volume = request.form['volume']
             title = request.form['title']
             arc = request.form['arc']
             price = request.form['price']
 
+            issue_name = name.lower()
+            table_title = helper.convert_title(name, volume)
+
+            # open a connection to the database
             # with sqlite3.connect('/var/www/myWebsite/myWebsite/comics_database.db') as conn:
             with sqlite3.connect(helper.database_location) as conn:
+                print('is it connecting')
                 cur = conn.cursor()
 
-                cur.execute(''' INSERT INTO Comics
-                                VALUES(?, ?, ?, ?, ?, ?)
-                            ''', [None, vol_id, issue_num, title, arc, price])
+                print('after cur is made')
+
+                # if the table has not been made yet then make it
+                cur.execute('''CREATE TABLE if not exists {} (
+                        id integer primary key autoincrement,
+                        issue_number varchar(5) not null,
+                        title varchar(100),
+                        arc varchar(50),
+                        price float);'''.format(table_title))
+
+                print('after first execute')
+
+                # add the entry into the table
+                cur.execute('''  INSERT INTO {} (issue_number, title, arc, price)
+                    VALUES (?,?,?,?)  '''.format(table_title),(num, title, arc, price) )
+
+                # try to add table_name into comics
+                try:
+                    cur.execute('''
+                        INSERT INTO comics (titles)
+                        VALUES (?)''', [table_title] )
+                    print('------------- Insert successful')
+                except:
+                    # if it doesn't work its already in there
+                    print('------------  it was already there')
+                    pass
 
                 conn.commit()
+                print('comic added successfully')
                 flash('Record successfully added')
 
         except Exception as e:
+            print('inside the except', e)
             conn.rollback()
-            print('exception', e)
-            flash('error in comic insert operation', 'error')
+            print('FAILED TO ENTER COMIC')
+            flash('error in insert operation', 'error')
 
         finally:
+            print('inside the finally')
+            print('closed the connection')
             return redirect(url_for('cb_display_page'))
 
-    if request.method == 'GET':
-        print('inside get')
-        with sqlite3.connect(helper.database_location) as conn:
-            cur = conn.cursor()
-
-            if id == '':
-                print('id blank')
-                # this is business as usual
-                cur.execute(''' SELECT vol_name, vol_number, vol_id
-                                FROM Volumes
-                                ORDER BY vol_name ASC, vol_number ASC
-                            ''')
-                volumes = cur.fetchall()
-                return render_template('cb_add_comic.html', volumes=volumes)
-
-            else:
-                print('id here')
-                cur.execute(''' SELECT vol_name, vol_number, vol_id
-                                FROM Volumes
-                                WHERE vol_id == ?
-                            ''', [id])
-                volumes = cur.fetchall()
-                print('volume: ', volumes)
-                return render_template('cb_add_comic.html', volumes=volumes)
-
-    return render_template('cb_add_comic.html', volumes=volumes)
+    return render_template('cb_add_comic.html')
 
 @require_login
-def cb_add_volume():
-    if request.method == 'POST':
-        try:
-            pub_id = request.form['publisher_dropdown']
-            vol_name = request.form['volume_name']
-            vol_number = request.form['volume_number']
-            month_start = request.form['date_start_month_dropdown']
-            year_start = request.form['date_start_year']
-            month_end = request.form['date_end_month_dropdown']
-            year_end = request.form['date_end_year']
-            link = request.form['link']
+def cb_delete(table, id):
 
-
-            # with sqlite3.connect('/var/www/myWebsite/myWebsite/comics_database.db') as conn:
-            with sqlite3.connect(helper.database_location) as conn:
-                cur = conn.cursor()
-
-                cur.execute(''' INSERT INTO Volumes
-                                VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?)
-                            ''', [None, pub_id, vol_name, vol_number, month_start, year_start, month_end, year_end, link])
-
-            conn.commit()
-            flash('Volume successfully added!')
-
-        except Exception as e:
-            conn.rollback()
-            print('exception', e)
-            flash('error in volume insertion operation', 'error')
-
-        finally:
-            return redirect(url_for('cb_display_page'))
-
-    if request.method == 'GET':
-        with sqlite3.connect(helper.database_location) as conn:
-            cur = conn.cursor()
-
-            cur.execute(''' SELECT pub_name, pub_id
-                            FROM Publishers
-                            ORDER BY pub_name ASC
-                        ''')
-            publishers = cur.fetchall()
-        return render_template('cb_add_volume.html', publishers=publishers)
-
-    return render_template('cb_add_volume.html')
-
-@require_login
-def cb_add_publisher():
-    if request.method == 'POST':
-        try:
-            pub_name = request.form['pub_name']
-
-
-            # with sqlite3.connect('/var/www/myWebsite/myWebsite/comics_database.db') as conn:
-            with sqlite3.connect(helper.database_location) as conn:
-                cur = conn.cursor()
-
-                cur.execute(''' INSERT INTO Publishers
-                                VALUES(?, ?)
-                            ''', [None, pub_name])
-
-            conn.commit()
-            flash('Volume successfully added!')
-
-        except Exception as e:
-            conn.rollback()
-            print('exception', e)
-            flash('error in publisher insertion operation', 'error')
-
-        finally:
-            return redirect(url_for('cb_display_page'))
-
-    return render_template('cb_add_publisher.html')
-
-@require_login
-def cb_delete(id):
     try:
+        # with sqlite3.connect('/var/www/myWebsite/myWebsite/comics_database.db') as conn:
         with sqlite3.connect(helper.database_location) as conn:
+            print('\n')
             cur = conn.cursor()
 
-            cur.execute(''' DELETE FROM Comics
-                            WHERE comic_id == ?
-                        ''', [id])
+            print('type: ', type(table), type(id))
+
+            cur.execute(''' DELETE FROM {}
+                            WHERE id={}  '''
+                            .format(table, id))
+
+            conn.commit()
+            flash('Record successfully deleted!')
+
+            cur.execute(''' SELECT COUNT(id)
+                            FROM {}'''.format(table))
+            a = cur.fetchall()
+            print('number id in {}:  {}'.format(table, a[0][0]))
+            if a[0][0] == 0:
+
+                # drop the table hen have to delete the entry from 'comics' table
+                cur.execute('''DROP TABLE {}'''.format(table))
+                cur.execute("DELETE FROM comics WHERE titles=?", (table,))
+
+                flash('Table empty, deleted table {}'.format(table), 'warn')
+                conn.commit()
+
     except Exception as e:
+        print('error: ', e)
         conn.rollback()
         conn.close()
         flash('Error in delete operation', 'error')
     finally:
-        flash('Successfully deleted comic!')
         conn.close()
         return redirect(url_for('cb_display_page'))
 
+    flash('Refresh page!', 'warn')
     return render_template('cb_display.html')
 
 @require_login
+def cb_search():
+    if request.method == 'POST':
+        name = request.form['issue_name']
+        num = request.form['issue_number']
+        volume = request.form['volume']
+        title = request.form['title']
+        arc = request.form['arc']
+
+
+        # search through to see if there are any
+        # first find "name_volume" pairs in "comics"
+
+        ''' if volume and num:
+            elif num
+            elif name
+                - num  -> require name
+        '''
+        name_data = []
+        single_data = []
+        vol_data = []
+        group_data = []
+        title_data = []
+        arc_data = []
+
+        if volume == '' and arc == '' and num == '' and title == '' and name != '':
+            try:
+                with sqlite3.connect(helper.database_location) as conn:
+                    cur = conn.cursor()
+
+                    # get all the titles from comics
+                    cur.execute(''' SELECT titles FROM comics ''')
+                    rows = cur.fetchall()
+                    same_titles = []
+                    # go through each of those titles and see if they match the issue looked for
+                    for entry in rows:
+                        issue, temp_volume = helper.revert_title(entry[0])
+                        print('  ', issue, temp_volume)
+                        if issue == name:
+                            same_titles.append(entry)
+
+                    # of the issues that are the same, keep all their stuff
+                    for title_name in same_titles:
+                        temp_name, temp_volume = helper.revert_title(title_name[0])
+                        cur.execute(''' SELECT * FROM {} ORDER BY issue_number ASC'''.format(title_name[0]))
+                        info = cur.fetchall()
+                        for entry in info:
+                            name_data.append([temp_name, entry[1], temp_volume, entry[2], entry[3], entry[4], title_name, entry[0]])
+            except Exception as e:
+                print('\n {} \n'.format(e))
+
+        if volume != '' and name != '' and num != '':
+            # find the comic
+            try:
+                with sqlite3.connect(helper.database_location) as conn:
+                    cur = conn.cursor()
+                    table_title = helper.convert_title(name, volume)
+
+                    cur.execute(''' SELECT *
+                                    FROM {}
+                                    WHERE issue_number={}'''.format(table_title, num))
+                    rows = cur.fetchall()
+                    for entry in rows:
+                        print('There was an entry', entry)
+                        single_data.append([name, entry[1], volume, entry[2], entry[3], entry[4], table_title, entry[0]])
+            except Exception:
+                pass
+
+        if volume != '' and name != '':
+            try:
+                with sqlite3.connect(helper.database_location) as conn:
+                    cur = conn.cursor()
+                    table_title = helper.convert_title(name, volume)
+
+                    cur.execute(''' SELECT * FROM {} ORDER BY issue_number ASC'''.format(table_title))
+                    rows = cur.fetchall()
+                    for entry in rows:
+                        print('There was an entry', entry)
+                        vol_data.append([name, entry[1], volume, entry[2], entry[3], entry[4], table_title, entry[0]])
+            except Exception:
+                pass
+
+        if num != '' and name != '':
+            print('made it inside the thing for name and number')
+            try:
+                with sqlite3.connect(helper.database_location) as conn:
+                    cur = conn.cursor()
+
+                    cur.execute(''' SELECT titles FROM comics ''')
+                    rows = cur.fetchall()
+                    for table_name in rows:
+                        print('table_name: ', table_name[0])
+                        temp_name, temp_volume = helper.revert_title(table_name[0])
+                        if temp_name == name:
+
+                            print('temp_name and temp_volume: ', temp_name, temp_volume)
+                            cur.execute(''' SELECT *
+                                            FROM {}
+                                            WHERE issue_number={}
+                                            ORDER BY issue_number ASC'''
+                                            .format(table_name[0], num))
+
+                            entries = cur.fetchall()
+                            for entry in entries:
+                                group_data.append([name, entry[1], temp_volume, entry[2], entry[3], entry[4], table_name[0], entry[0]])
+            except Exception as e:
+                print('\n {} \n'.format(e))
+                pass
+
+        # 'name' should maybe an elif attached to the volume
+        # if you hav a volume you are going to have the associated mae along with it
+
+
+        if title != '' or arc != '':
+            try:
+                with sqlite3.connect(helper.database_location) as conn:
+                    cur = conn.cursor()
+
+                    cur.execute(''' SELECT titles From comics ''')
+                    title_names = cur.fetchall()
+
+                    print('TITLE_NAMES: ', title_names)
+                    for table_title in title_names:
+                        print(table_title[0])
+                        # for each table..
+
+                        name, volume = helper.revert_title(table_title[0])
+
+
+                        # find the titles that match
+                        if title != '':
+                            query = ''' SELECT *
+                                        FROM {}
+                                        WHERE title=?
+                                        ORDER BY issue_number ASC'''.format(table_title[0])
+                            cur.execute(query, (title,))
+                            print('\n\nthis is the location of the test')
+                            rows = cur.fetchall()
+                            print(rows)
+                            for entry in rows:
+                                if entry[2] == title:
+                                    print('There was an entry', entry)
+                                    title_data.append([name, entry[1], volume, entry[2], entry[3], entry[4], table_title[0], entry[0]])
+
+                        # and the arcs that match
+                        if arc != '':
+                            query = ''' SELECT *
+                                        FROM {}
+                                        WHERE arc=?
+                                        ORDER BY issue_number ASC'''.format(table_title[0])
+                            cur.execute(query, (arc,))
+                            rows = cur.fetchall()
+                            for entry in rows:
+                                if entry[3] == arc:
+                                    print('There was an entry', entry)
+                                    arc_data.append([name, entry[1], volume, entry[2], entry[3], entry[4], table_title[0], entry[0]])
+
+
+            except Exception as e:
+                print('\n {} \n'.format(e))
+
+        ''' maybe the rest of this should go
+
+            open database
+            cycle through ALL the entries
+            if there is a match on any of these
+                - title
+                - arc
+        '''
+
+
+
+    return render_template('cb_display_search.html', name_data=name_data, single_data=single_data, group_data=group_data, vol_data=vol_data, title_data=title_data, arc_data=arc_data)
+
+@require_login
 def cb_display():
+    # with sqlite3.connect('/var/www/myWebsite/myWebsite/comics_database.db') as conn:
     with sqlite3.connect(helper.database_location) as conn:
         cur = conn.cursor()
+        # collect all table names
+        cur.execute('''SELECT titles FROM comics ORDER BY titles ASC''')
+        tables = cur.fetchall()
 
-        cur.execute(''' SELECT Volumes.vol_name, Comics.issue_num, Volumes.vol_number, Comics.title, Comics.arc, Comics.price, Comics.comic_id
-                        FROM Volumes, Comics
-                        WHERE Comics.vol_id == Volumes.vol_id
-                        ORDER BY Volumes.vol_name ASC, Comics.issue_num ASC
-                    ''')
-        comics = cur.fetchall()
+        rows = [] # list of entries
+        # for each of the tables, get their info
+        for table in tables:
+            table_title = table[0]
 
-        rows = []
-        for comic in comics:
-            rows.append(comic)
+            # get all the entries from table
+            cur.execute('''SELECT * from {} ORDER BY issue_number ASC'''.format(table_title))
+            table_entries = cur.fetchall()
 
-    return render_template("cb_display.html", rows=rows)
+            issue, volume = helper.revert_title(table_title)
 
-# @require_login
-# def cb_unified_search():
-#
-#     ''' open database
-#         cycle through all entries
-#             for entry check if match to category
-#                 if match add to array
-#         output
-#     '''
-#     if request.method == 'POST':
-#         search_data = request.form['search_bar'].split()
-#         print('-{}-'.format(search_data))
-#
-#         with sqlite3.connect(helper.database_location) as conn:
-#             cur = conn.cursor()
-#
-#             # first check for matching volumes
-#             if len(search_data) == 2:
-#                 if check_data(search_data):
-#                     print('worked', search_data)
-#
-#                     # probably a volume name/number or issue name/number
-#                     cur.execute(''' SELECT c.title
-#                                     FROM Comics as c, Volumes as v
-#                                     WHERE  v.vol_name == ?  and c.vol_id == v.vol_id and c.issue_num == ?
-#                     ''', [search_data[0], search_data[1]])
-#
-#                     data = cur.fetchall()
-#                     for i in data:
-#                         print(i)
-#
-#             # for word in search_words:
-#             #     if any(char.isdigit() for char in word):
-#             #         # if there are any numbers in the string, don't check it
-#             #         continue
-#             #     else:
-#             #         cur.execute()
-#
-#         return render_template('cb_home.html')
-#
-# def check_data(search_data):
-#     if search_data[0].isdigit() and not any(char.isdigit() for char in search_data[1]):
-#         print('little work')
-#         return [search_data[1], search_data[0]]
-#     if search_data[1].isdigit() and not any(char.isdigit() for char in search_data[0]):
-#         print('No Work')
-#         return search_data
-#     return False
+            for entry in table_entries:
+                rows.append([issue, entry[1], volume, entry[2], entry[3], entry[4], table_title, entry[0]])
+    # return render_template("cb_display.html")
+    return render_template("cb_display.html",rows = rows)
 
-@require_login
-def cb_display_tables():
-    with sqlite3.connect(helper.database_location) as conn:
-        cur = conn.cursor()
+def cb_unified_search():
 
-        # get all the titles from comics
+    ''' open database
+        cycle through all entries
+            for entry check if match to category
+                if match add to array
+        output
+    '''
+    if request.method == 'POST':
+        search_data = request.form['search_bar']
+        search_nums = []
+        search_words = ''
+        parts = search_data.split(' ')
+        for part in parts:
+            if part.isdigit():
+                search_nums.append(int(part))
+            search_words = search_words + part.lower()
 
-        cur.execute(''' SELECT vol_name, vol_number, vol_id
-                        FROM Volumes
-                        ORDER BY vol_name ASC, vol_number ASC
-                    ''')
-        volumes = cur.fetchall()
+        print('SEARCH NUMS --- ', search_nums)
+        print('SEARCH WORDS --- ', search_words)
 
-    rows = []
-    for volume in volumes:
-        rows.append(volume)
 
-    return render_template('cb_display_tables.html', rows=rows)
+        # open database
+        with sqlite3.connect(helper.database_location) as conn:
+            cur = conn.cursor()
+            cur.execute(''' SELECT * from comics ''')
+            tables = cur.fetchall()
 
-@require_login
-def cb_display_table_info(id):
-    with sqlite3.connect(helper.database_location) as conn:
-        cur = conn.cursor()
+            name_data = []
+            single_data = []
+            vol_data = []
+            group_data = []
+            title_data = []
+            arc_data = []
 
-        cur.execute(''' SELECT v.vol_name, c.issue_num, v.vol_number, c.title, c.arc, c.price, c.comic_id
-                        FROM Volumes as v, Comics as c
-                        WHERE c.vol_id == ? and v.vol_id == ?
-                        ORDER BY c.issue_num
-                    ''', [id, id])
-        rows = cur.fetchall()
+            for table in tables:
+                name, volume = helper.revert_title(table[1])
+                cur.execute(''' SELECT * from {} '''.format(table[1]))
+                rows = cur.fetchall()
 
-        cur.execute(''' SELECT *
-                        FROM Volumes
-                        WHERE vol_id == ?
-                    ''', [id])
-        vol_info = cur.fetchall()[0]
-        print(vol_info)
+                for row in rows:
+                    # if individual comics match issue number
+                    if row[1] in search_nums:
+                        print('matched 1')
+                        group_data.append([name, row[1], volume, row[2], row[3], row[4], table[1], row[0]])
 
-    issue = rows[0][0]
-    volume = rows[0][2]
+                    # if matched issue name
+                    if name.replace(' ', '').lower() in search_words:
+                        print('matched 2')
+                        name_data.append([name, row[1], volume, row[2], row[3], row[4], table[1], row[0]])
 
-    return render_template('cb_display_table_info.html', rows=rows, issue=issue, volume=volume, vol_info=vol_info, id=id)
+                    # if matched volume name
+                    if volume.lower() in search_words:
+                        print('matched 3')
+                        volume_data.append([name, row[1], volume, row[2], row[3], row[4], table[1], row[0]])
 
-@require_login
-def cb_volume_info():
-    return render_template('cb_volume_info_page.html')
+                    # if matched arc name
+                    if search_words in row[3].lower() and row[3] != '':
+                        print('matched 4')
+                        print('--{}-- v --{}--'.format(row[3], search_words))
+                        arc_data.append([name, row[1], volume, row[2], row[3], row[4], table[1], row[0]])
 
-@require_login
-def cb_export():
+                    # if matches part of title
+                    if search_words in row[2].lower() :
+                        print('matched 5')
+                        title_data.append([name, row[1], volume, row[2], row[3], row[4], table[1], row[0]])
 
-    conn = sqlite3.connect(helper.database_location)
 
-    publishers_df = pd.read_sql_query(''' SELECT * FROM Publishers ''', conn)
-    publishers_df.to_csv(path_or_buf='Publishers.csv', index=False)
 
-    volumes_df = pd.read_sql_query(''' SELECT * FROM Volumes ''', conn)
-    volumes_df.to_csv(path_or_buf='Volumes.csv', index=False)
+        return render_template('cb_display_search.html', name_data=name_data, single_data=single_data, group_data=group_data, vol_data=vol_data, title_data=title_data, arc_data=arc_data)
 
-    comics_df = pd.read_sql_query(''' SELECT * FROM Comics ''', conn)
-    comics_df.to_csv(path_or_buf='Comics.csv', index=False)
 
-    graphic_novels_df = pd.read_sql_query(''' SELECT * FROM GraphicNovels ''', conn)
-    graphic_novels_df.to_csv(path_or_buf='GraphicNovels.csv', index=False)
 
-    zf = zipfile.ZipFile('comicBase_info.zip', mode='w')
-    try:
-        zf.write('Publishers.csv')
-        zf.write('Volumes.csv')
-        zf.write('Comics.csv')
-        zf.write('GraphicNovels.csv')
-    finally:
-        zf.close()
 
-    return render_template('cb_home.html')
+
+
+
 
 
 

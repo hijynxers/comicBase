@@ -7,43 +7,30 @@ app = Flask(__name__)
 db = sqlite3.connect(helper.database_location)
 cur = db.cursor()
 
-cur.execute(''' DROP TABLE IF EXISTS Comics''')
-cur.execute(''' DROP TABLE IF EXISTS Volumes''')
-cur.execute(''' DROP TABLE IF EXISTS Publishers''')
-cur.execute(''' DROP TABLE IF EXISTS GraphicNovels''')
+cur.execute(''' SELECT titles FROM comics ''')
+table_titles = cur.fetchall()
 
+for table in table_titles:
+    query = 'DROP TABLE IF exists {}'.format(table[0])
+    print(query)
+    cur.execute(query);
+print('Other existing tables dropped')
 
-with app.open_resource('sql/new_tables.sql', mode='r') as f:
+cur.execute('DROP TABLE IF exists comics')
+print('comics table dropped')
+
+# inserts the tables into the database
+with app.open_resource('sql/tables.sql', mode='r') as f:
     cur.executescript(f.read())
 db.commit()
-print('Tables Inintalized')
+print('Tables initialized')
 
-with app.open_resource('sql/new_publisher.sql', mode='r') as f:
+with app.open_resource('sql/entries.sql', mode='r') as f:
     cur.executescript(f.read())
 db.commit()
-print('Publishers Inintalized')
+print('Entries initialized')
 
-with app.open_resource('sql/new_volumes.sql', mode='r') as f:
-    cur.executescript(f.read())
-db.commit()
-print('Volumes Inintalized')
-
-with app.open_resource('sql/new_rebirth_entries.sql', mode='r') as f:
-    cur.executescript(f.read())
-db.commit()
-print('Rebirth Entries Inintalized')
-
-with app.open_resource('sql/old_title_entries.sql', mode='r') as f:
-    cur.executescript(f.read())
-db.commit()
-print('Old Entries Inintalized')
-
-with app.open_resource('sql/new_marvel_entries.sql', mode='r') as f:
-    cur.executescript(f.read())
-db.commit()
-print('Old Marvel Entries Inintalized')
-
-print('Database Inintalized!')
+print("Database initialized!")
 
 # close the connection
 db.close()
