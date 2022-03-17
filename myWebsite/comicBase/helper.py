@@ -1,7 +1,4 @@
-# works on server
 # database_location = '/var/www/myWebsite/myWebsite/comics_database.db'
-
-# works at home
 database_location = 'comics_database.db'
 
 
@@ -22,20 +19,3 @@ def revert_title(title_name):
         issue += word
     issue = issue.title()   # then make first lettes capital
     return issue, volume
-
-def sort_tables(tables):
-    # split them apart
-    table_parts = []
-    for table in tables:
-        issue, volume = revert_title(table[0])
-        table_parts.append([issue, volume])
-
-    # sort them
-    table_parts.sort()
-
-    # put them back together`
-    sorted_tables = []
-    for table in table_parts:
-        sorted_tables.append(convert_title(table[0], table[1]))
-
-    return sorted_tables

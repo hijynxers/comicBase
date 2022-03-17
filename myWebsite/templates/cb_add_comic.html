@@ -7,72 +7,19 @@
       </div>
     </div>
 
-    
-    <form action="{{ url_for('cb_add_comic_page') }}" method="POST">
+    <form action="{{ url_for('cb_add_comic_page') }}" name="submit_form" onsubmit="return valForm()" method="POST">
+       <h3>comic Information</h3>
+       <input type="text" name="issue_name" placeholder="Issue Name"></input></br>
+       <input type="text" name="issue_number" placeholder="Issue Number"></input><br>
+       <input type="text" name="volume" placeholder="Volume"></input><br>
+       <input type="text" name="arc" placeholder="Arc"></input><br>
+       <input type="text" name="title" placeholder="Title"></input><br>
+       <input type="text" name="price" placeholder="0.00"></input><br>
 
-      <table class="table_new" align="center">
-        <thead>
-          <h3>Comic Information</h3>
-        </thead>
-        <tbody>
-          <tr>
-            <td align="right">Volume Name: </td>
-            <td align="left">
-              <select name=volume_dropdown>
-                {% for volume in volumes %}
-                  {% if volume[1] == "" %}
-                    <option value={{ volume[2] }}>{{ volume[0] }}</option>
-                  {% else %}
-                    <option value={{ volume[2] }}>{{ volume[0] }} V{{ volume[1] }}</option>
-                  {% endif %}
-                {% endfor %}
-              </select>
-            </td>
-          </tr>
-          <tr>
-            <td align="right">Issue Number:
-            <td align="left">
-              <input type="text" name="issue_number"></input><br>
-            </td>
-          </tr>
-          <tr>
-            <td align="right">Arc:
-            <td align="left">
-              <input type="text" name="arc"></input><br>
-            </td>
-          </tr>
-          <tr>
-            <td align="right">Title:
-            <td align="left">
-              <input type="text" name="title"></input><br>
-            </td>
-          </tr>
-          <tr>
-            <td align="right">Price:
-            <td align="left">
-              <input type="text" name="price"></input><br>
-            </td>
-          </tr>
-        </tbody>
-        <tfoot>
-          <tr>
-            <td></td>
-            <td align="left">
-              <input type="submit" value="Submit" /><br>
-            </td>
-          </tr>
-        </tfoot>
-      </table>
-
-
+       <input type="submit" value="submit" /><br>
     </form>
 
-    <br>
-    <br>
-    <br>
-    <br>
-    <br>
-    <!-- <script>
+    <script>
       function valForm() {
         var name = document.forms["submit_form"]["issue_name"].value;
         var num = document.forms["submit_form"]["issue_number"].value;
@@ -83,6 +30,6 @@
           return false;
         }
       }
-    </script> -->
+    </script>
 
 {% endblock %}

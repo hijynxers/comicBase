@@ -3,23 +3,19 @@ import sqlite3
 from functools import wraps
 import os
 
-from comicBase.comicBase import cb_home, cb_login, cb_logout
-from comicBase.comicBase import cb_add_comic, cb_add_volume, cb_add_publisher
-from comicBase.comicBase import cb_delete, cb_export #, cb_unified_search
-from comicBase.comicBase import cb_display, cb_display_tables, cb_display_table_info, cb_volume_info
+import comicBase.helper as helper
+from comicBase.comicBase import cb_home, cb_login, cb_logout, cb_add_comic, cb_delete, cb_display, cb_search, cb_unified_search
 
 app = Flask(__name__)
 app.config.from_object(__name__)
 
 app.config.update(dict(
-    DEBUG=True,
     DATABASE=os.path.join(app.root_path, 'comics_database.db'),
     SECRET_KEY='development_key',
     USERNAME='f',
     PASSWORD='f'
 ))
 app.config.from_envvar('FLASKR_SETTINGS', silent=True)
-
 
 ########################################
 #####                              #####
@@ -43,14 +39,13 @@ def projects():
 
 ########################################
 #####                              #####
-#####           APP STUFF          #####
+#####          OTHER STUFF         #####
 #####                              #####
 ########################################
 
-
-# @app.route('/comicBase/a_log')
-# def a_login():
-#     return app_login('f', 'f')
+@app.route('/test')
+def test():
+    return render_template('test.html')
 
 
 ########################################
@@ -60,78 +55,37 @@ def projects():
 ########################################
 
 
-# home page
 @app.route('/comicBase')
 def cb_home_page():
     return cb_home()
 
-@app.route('/comicBase/login', methods=['GET', 'POST'])
+@app.route('/login', methods=['GET', 'POST'])
 def cb_login_page():
     return cb_login(app)
 
-@app.route('/comicBase/logout')
+@app.route('/logout')
 def cb_logout_page():
     return cb_logout(app)
 
-# add comic screen
-@app.route('/comicBase/add_comic', methods=['GET', 'POST'])
-@app.route('/comicBase/add_comic_<id>', methods=['GET', 'POST'])
-def cb_add_comic_page(id=""):
-    return cb_add_comic(id)
+@app.route('/add_comic', methods=['GET', 'POST'])
+def cb_add_comic_page():
+    return cb_add_comic()
 
-# add volume screen
-@app.route('/comicBase/add_volume', methods=['GET', 'POST'])
-def cb_add_volume_page():
-    return cb_add_volume()
-
-# add publisher screen
-@app.route('/comicBase/add_publisher', methods=['GET', 'POST'])
-def cb_add_publisher_page():
-    return cb_add_publisher()
-
-# displays all the comics
-@app.route('/comicBase/display_comics')
+@app.route('/display_comics')
 def cb_display_page():
     return cb_display()
 
-    # deletes selecteed comic
-@app.route('/comicBase/delete_comic/<id>')
-def cb_delete_page(id):
-    return cb_delete(id)
+@app.route('/delete_comic/<table>/<id>')
+def cb_delete_comic(table, id):
+    return cb_delete(table, id)
 
-# searches through all comics
-@app.route('/comicBase/unified_search', methods=['POST'])
-def cb_unified_search_page():
+@app.route('/search_comics', methods=['POST'])
+def cb_search_page():
+    return cb_search()
+
+@app.route('/unified_search', methods=['POST'])
+def cb_unified():
     return cb_unified_search()
-
-# displays the tables in the database
-@app.route('/comicBase/tables')
-def cb_display_tables_page():
-    return cb_display_tables()
-
-# displays info from table chosen on "cb_display_tables_page"
-@app.route('/comicBase/tables_display_<id>')
-def cb_display_table_info_page(id):
-    return cb_display_table_info(id)
-
-@app.route('/comicBase/volume_info')
-def cb_volume_info_page():
-    return cb_volume_info()
-
-@app.route('/comicBase/export')
-def cb_export_data():
-    return cb_export()
-
-########################################
-#####                              #####
-#####         TESTING STUFF        #####
-#####                              #####
-########################################
-
-
-
-
-
 
 if __name__ == '__main__':
     app.run()
